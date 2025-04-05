@@ -5,3 +5,5 @@ Compte rendu
 log.*
 yield
 .venv
+.idea
+.gitignore
