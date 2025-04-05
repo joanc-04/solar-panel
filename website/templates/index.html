@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./static/styles/styles.css">
+<!--    <link rel="stylesheet" href="/website/static/styles/styles.css">-->
+    <title>Affichage des données en temps réel</title>
+<!--    <script src='https://cdn.plot.ly/plotly-3.0.0.min.js'></script>-->
+<!--    <script src='https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.17/d3.min.js'></script>-->
+
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1 id="page__title">Affichage des données en temps réel</h1>
+
+        <div class="loader-container">
+            <div class="loader"></div>
+        </div>
+
+        <div class="cards-container">
+
+            <div class="card" id="card__manualMod">
+                <div id="toggle-container">
+                    <div class="circle"></div>
+                </div>
+                <div class="label">Suiveur automatique</div>
+            </div>
+
+
+            <div class="flex-horizontal-container" style="justify-content: center;">
+
+                <div class="card" id="card__sensors">
+
+                    <div class="flex-vertical-container">
+
+                        <h2>Visualisation du panneau solaire</h2>
+
+                        <div id="panel">
+                            <div class="cell up left"></div>
+                            <div class="cell up"><span class="sensor" id="sensor_1">0</span><span>Pin : A1</span></div>
+                            <div class="cell up right"></div>
+                            <div class="cell left"><span class="sensor" id="sensor_3">0</span><span>Pin : A3</span></div>
+                            <div class="cell"></div>
+                            <div class="cell right"><span class="sensor" id="sensor_4">0</span><span>Pin : A4</span></div>
+                            <div class="cell down left"></div>
+                            <div class="cell down"><span class="sensor" id="sensor_2">0</span><span>Pin : A2</span></div>
+                            <div class="cell down right"></div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="card" id="card__servos">
+                    <div class="flex-vertical-container">
+
+                        <h2>Angles des servomoteurs</h2>
+
+                        <!-- Servomoteur 1 -->
+                        <div class="flex-vertical-container slider">
+
+                            <span class="slider__title">Servomoteur 1 :</span>
+                            <span class="slider__utility">Contrôle l'inclinaison du panneau.</span>
+                            <span class="slider__label" id="servo-1__label">90</span>
+
+                            <div class="slider-container">
+                                <input type="range" id="servo-1__slider" min="0" max="180" value="90">
+                            </div>
+
+                        </div>
+
+
+                        <!-- Servomoteur 2 -->
+                        <div class="flex-vertical-container slider">
+
+                            <span class="slider__title">Servomoteur 2 :</span>
+                            <span class="slider__utility">Contrôle l'orientation du panneau.</span>
+                            <span class="slider__label" id="servo-2__label">90</span>
+
+                            <div class="slider-container">
+                                <input type="range" id="servo-2__slider" min="0" max="180" value="90">
+                            </div>
+
+                        </div>
+
+
+                        <div class="flex-vertical-container slider">
+
+                            <span class="slider__title">Angle rotation</span>
+                            <span class="slider__utility">Contrôle l'angle de rotation.</span>
+                            <span class="slider__label" id="angleRotation__label">5</span>
+
+                            <div class="slider-container">
+                                <input type="range" id="angleRotation__slider" min="1" max="30" value="5">
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+
+
+                <div class="flex-vertical-container">
+
+                    <div class="card" id="card__seuil-sensibility">
+
+                        <div class="flex-vertical-container">
+
+                            <h2>Phototransistors</h2>
+
+                            <div class="flex-vertical-container slider">
+
+                                <span class="slider__title">Seuil de sensibilité des phototransistors :</span>
+                                <span class="slider__utility">Contrôle la différence minimale d'intensité entre deux capteurs.</span>
+                                <span class="slider__label" id="sensibility__label">0</span>
+
+                                <div class="slider-container">
+                                    <input type="range" id="sensibility__slider" min="0" max="200" value="0">
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="card" id="card__delay_update">
+
+                        <div class="flex-vertical-container">
+
+                            <h2>Délai d'actualisation</h2>
+
+                            <div class="flex-vertical-container slider">
+
+                                <span class="slider__title">Délai d'actualisation :</span>
+                                <span class="slider__utility">Contrôle l'intervalle d'actualisation du panneau solaire (ms).</span>
+                                <span class="slider__label" id="delayUpdate__label">0</span>
+
+                                <div class="slider-container">
+                                    <input type="range" id="delayUpdate__slider" min="1" max="1000" value="1">
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                </div>
+
+
+            </div>
+
+        </div>
+
+        <div class="card card__power" id="card__powerGenerated">
+            <canvas class="myChart" id="chart__powerGenerated"></canvas>
+
+            <div class="button-download-container flex-horizontal-container">
+                <button class="button-download downloadGraphique" id="downloadGraphique__powerGenerated">Télécharger le graphique</button>
+                <button class="button-download downloadCSV" id="downloadCSV__powerGenerated" colName="Puissance (mW)">Télécharger les données au format CSV</button>
+            </div>
+        </div>
+
+        <div class="card card__power" id="card__powerRequired">
+            <canvas class="myChart" id="chart__powerRequired"></canvas>
+
+            <div class="button-download-container flex-horizontal-container">
+                <button class="button-download downloadGraphique" id="downloadGraphique__powerRequired">Télécharger le graphique</button>
+                <button class="button-download downloadCSV" id="downloadCSV__powerRequired" colName="Puissance (mW)">Télécharger les données au format CSV</button>
+            </div>
+        </div>
+
+        <div class="card card__power" id="card__meanYield">
+            <canvas class="myChart" id="chart__meanYield"></canvas>
+
+            <div class="button-download-container flex-horizontal-container">
+                <button class="button-download downloadGraphique" id="downloadGraphique__meanYield">Télécharger le graphique</button>
+                <button class="button-download downloadCSV" id="downloadCSV__meanYield" colName="Rendement (%)">Télécharger les données au format CSV</button>
+            </div>
+        </div>
+
+
+
+    </div>
+
+
+
+    <!-- Chargement des scripts -->
+<!--    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>-->
+    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+<!--    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>-->
+<!--    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>-->
+
+
+
+<!--    <script>-->
+<!--        // Paramètres de la trajectoire du Soleil-->
+<!--        let radius = 10;  // Rayon de l'orbite du Soleil-->
+<!--        let angle = 0;  // Angle initial-->
+<!--        let speed = Math.PI / 180;  // Vitesse de l'orbite, ici une rotation de 1 degré par seconde-->
+
+<!--        // Initialisation des coordonnées-->
+<!--        let x = [];-->
+<!--        let y = [];-->
+<!--        let z = [];-->
+
+<!--        // Trace initiale du Soleil-->
+<!--        let trace = {-->
+<!--            x: x,-->
+<!--            y: y,-->
+<!--            z: z,-->
+<!--            mode: 'markers',-->
+<!--            marker: {-->
+<!--                size: 12,-->
+<!--                color: 'yellow',-->
+<!--                opacity: 0.8-->
+<!--            },-->
+<!--            type: 'scatter3d'-->
+<!--        };-->
+
+<!--        // Layout initial-->
+<!--        let layout = {-->
+<!--            margin: { l: 0, r: 0, b: 0, t: 0 },-->
+<!--            scene: {-->
+<!--                xaxis: { title: 'X' },-->
+<!--                yaxis: { title: 'Y' },-->
+<!--                zaxis: { title: 'Z' },-->
+<!--                camera: {  // Initial camera setup to lock the view orientation-->
+<!--                    eye: { x: 1.5, y: 1.5, z: 1.5 }-->
+<!--                }-->
+<!--            }-->
+<!--        };-->
+
+<!--        // Initialiser le graphique-->
+<!--        Plotly.newPlot('myDiv', [trace], layout);-->
+
+<!--        // Fonction pour ajouter un point qui simule la trajectoire du Soleil-->
+<!--        function addPoint() {-->
+<!--            // Calculer les nouvelles coordonnées x, y, z-->
+<!--            angle += speed;-->
+<!--            let newX = radius * Math.cos(angle);-->
+<!--            let newY = radius * Math.sin(angle);-->
+<!--            let newZ = 0;  // Le Soleil reste sur le plan XY (on peut ajouter une composante Z si nécessaire)-->
+
+<!--            // Ajouter les nouveaux points aux tableaux existants-->
+<!--            x.push(newX);-->
+<!--            y.push(newY);-->
+<!--            z.push(newZ);-->
+
+<!--            // Ajouter les nouveaux points à la trace sans redéfinir complètement-->
+<!--            Plotly.extendTraces('myDiv', {-->
+<!--                x: [[newX]], // Ajouter un seul point à la fois-->
+<!--                y: [[newY]],-->
+<!--                z: [[newZ]]-->
+<!--            }, [0]); // [0] pour la première trace-->
+<!--        }-->
+
+<!--        // Ajouter un point toutes les 100ms (0.1 secondes)-->
+<!--        setInterval(addPoint, 1000);-->
+
+
+<!--    </script>-->
+<!--        <script src="../static/scripts/scripts.js"></script>-->
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="{{ url_for('static', filename='scripts/scripts.js') }}"></script>
+
+
+
+</body>
+
+</html>
