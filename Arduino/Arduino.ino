@@ -4,7 +4,7 @@
 
 // Déclaration des variables de configuration
 int DELAY_TIME_UPDATE = 50;
-int DELAY_TIME_SEND_DATA = 500;
+int DELAY_TIME_SEND_DATA = 50;
 int DELAY_TIME_BUTTON = 20;
 int buttonPin = 1;
 int angleRotation = 3;
@@ -21,13 +21,9 @@ float sensor4Resistance = 9770;
 int SEUIL_SENSIBILITY = 5;
 int DEFAULT_MANUAL_MOD = 0;
 
-int RESISTOR_CELL = 9790;
+int RESISTOR_CELL = 9710;
 int RESISTOR_CELL_PIN_1 = A0;
 int RESISTOR_CELL_PIN_2 = A5;
-
-int RESISTOR_ARDUINO = 1;
-int RESISTOR_ARDUINO_PIN_1 = A0;
-int RESISTOR_ARDUINO_PIN_2 = A5;
 
 
 
@@ -51,10 +47,8 @@ class Cooldown {
     }
 
     void set_delay(int newDelay) {
-        Serial.println("YOUPIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII");
         delayCooldown = newDelay;
         previousTime = millis();
-        Serial.println(delayCooldown);
     }
 
     int get_delay() {
@@ -105,28 +99,36 @@ class ServoControl {
         return newAngleStep;
     }
 
-//     int angleLimit = 40;
+    int angleLimit = 40;
 
-    void increase(ServoControl* servo1=nullptr) {
+    bool increase(ServoControl* servo1=nullptr) {
+        bool limitReached = false;
         if (angle + angleStep <= maxAngle) angle += angleStep;
-        else if (angle < maxAngle) angle = maxAngle;
-//         else if (angle == maxAngle && pin == servo2Pin && servo1) {
+        else if (angle < maxAngle) {
+            angle = maxAngle;
+        }
+//         else if (angle == maxAngle && pin == servo2Pin && servo1 && (servo1->get_angle() < 30 || servo1->get_angle() > 150)) {
+//             limitReached = true;
 //             servo1->set_angle(180 - servo1->get_angle());
-//             angle = 180 - angleLimit;
-//             delay(50); // On attend que les deux servomoteurs ont fini de tourner
+//             angle = 0;
 //         }
         servo.write(angle);
+        return limitReached;
     }
 
-    void decrease(ServoControl* servo1=nullptr) {
+    bool decrease(ServoControl* servo1=nullptr) {
+        bool limitReached = false;
         if (angle - angleStep >= minAngle) angle -= angleStep;
-        else if (angle > minAngle) angle = minAngle;
-//         else if (angle == minAngle && pin == servo2Pin && servo1) {
+        else if (angle > minAngle) {
+            angle = minAngle;
+        }
+//         else if (angle == minAngle && pin == servo2Pin && servo1 && (servo1->get_angle() < 30 || servo1->get_angle() > 150)) {
+//             limitReached = true;
 //             servo1->set_angle(180 - servo1->get_angle());
-//             angle = 180 - angleLimit;
-//             delay(50);
+//             angle = 180;
 //         }
         servo.write(angle);
+        return limitReached;
     }
 };
 
@@ -166,7 +168,7 @@ class Communication {
         tracker(tracker),
         cooldown(cooldown) {}
 
-    void send_data(int manualMod, int sensor1, int sensor2, int sensor3, int sensor4, int angle1, int angle2, String direction1, String direction2, int angleStep, int delayUpdate, int sensibility);
+    void send_data(int manualMod, int sensor1, int sensor2, int sensor3, int sensor4, int angle1, int angle2, String direction1, String direction2, int angleStep, int delayUpdate, int sensibility, float powerGenerated, float powerRequired, float currentYield);
     void receive_data();
 };
 
@@ -179,6 +181,7 @@ class Tracker {
         ServoControl servo1, servo2;                                // Servomoteurs
         LightSensor sensor1, sensor2, sensor3, sensor4;             // Capteurs
         int sensibility;                                            // Seuil de sensibilité
+        int lastSensibility;
         int manualMod;                                              // Status du mode manuel
         int buttonPin;                                              // Numéro du bouton
         Cooldown cooldownUpdate, cooldownSendData, cooldownButton;  // Durée des cooldowns
@@ -196,6 +199,7 @@ class Tracker {
         sensor4(sensor4Pin, sensor4Resistance),
 
         sensibility(SEUIL_SENSIBILITY),
+        lastSensibility(SEUIL_SENSIBILITY),
         manualMod(manualMod),
         buttonPin(buttonPin),
 
@@ -264,13 +268,22 @@ class Tracker {
                 sensor3Value = temp;
             }
 
+            bool limitReached;
             if (sensor3Value > sensor4Value) {
-                servo2.increase(&servo1);
+                limitReached = servo2.increase(&servo1);
                 direction2 = "left";
             } else {
-                servo2.decrease(&servo1);
+                limitReached = servo2.decrease(&servo1);
                 direction2 = "right";
             }
+
+//             if (limitReached) {
+//                 lastSensibility = sensibility;
+//                 sensibility = 300;
+//             } else {
+//                 sensibility = lastSensibility;
+//             }
+
         } else direction2 = "";
 
     }
@@ -295,6 +308,14 @@ class Tracker {
         int sensor3Value = sensor3.get_value();
         int sensor4Value = sensor4.get_value();
 
+        float* yield = get_yield();  // Récupère le tableau retourné
+
+        float r = yield[0];
+        float Pp = yield[1];
+        float Pa = yield[2];
+
+        delete[] yield;
+
         // Envoie les données à Communication qui les formatent pour les envoyez par port série à Python
         communication.send_data(
             manualMod,
@@ -303,7 +324,10 @@ class Tracker {
             direction1, direction2,
             servo1.get_angleStep(),
             cooldownUpdate.get_delay(),
-            sensibility
+            sensibility,
+            Pp,
+            Pa,
+            r
         );
 
     }
@@ -339,28 +363,33 @@ class Tracker {
         Serial.println("");
     }
 
-    float get_yield() {
+    float* get_yield() {
 
-        float Up = (analogRead(RESISTOR_CELL_PIN_1) - analogRead(RESISTOR_CELL_PIN_2)) * 5 / 1023;
-        float Ip = Up / 9700.;
+        float Up = (analogRead(RESISTOR_CELL_PIN_1) - analogRead(RESISTOR_CELL_PIN_2)) * 5 / 1023.0;
+        float Ip = Up / 9710.;
         float Pp = Up * Ip;
 
         float Ua = 5;
-        float I1 = analogRead(A1) / sensor1Resistance;
-        float I2 = analogRead(A2) / sensor2Resistance;
-        float I3 = analogRead(A3) / sensor3Resistance;
-        float I4 = analogRead(A4) / sensor4Resistance;
+        float I1 = (analogRead(A1) * 5 / 1023.) / sensor1Resistance;
+        float I2 = (analogRead(A2) * 5 / 1023.) / sensor2Resistance;
+        float I3 = (analogRead(A3) * 5 / 1023.) / sensor3Resistance;
+        float I4 = (analogRead(A4) * 5 / 1023.) / sensor4Resistance;
         float Ia = - (I1 + I2 + I3 + I4);
-        float Pa = Ua * Ia;
+        
+        float Pa = abs(Ua * Ia);
 
         float r = abs(Pp / Pa) * 100;
 
-        Serial.println("Puissance générée par le panneau solaire : " + String(Pp));
-        Serial.println("Puissance générée par l'ensemble du circuit : " + String(Pa));
-        Serial.println("Rendement du panneau solaire par rapport à l'énergie fournie par le circuit : " + String(r));
-        Serial.println("");
+//         Serial.println("Puissance générée par le panneau solaire : " + String(Pp));
+//         Serial.println("Puissance générée par l'ensemble du circuit : " + String(Pa));
+//         Serial.println("Rendement du panneau solaire par rapport à l'énergie fournie par le circuit : " + String(r));
+//         Serial.println("");
 
-        return r, Pp, Pa;
+        float* yield = new float[3];  // Alloue dynamiquement un tableau de 3 éléments
+        yield[0] = r;  // Initialise r
+        yield[1] = Pp;  // Initialise Pp
+        yield[2] = Pa;  // Initialise Pa
+        return yield;
 
     }
 };
@@ -369,7 +398,7 @@ class Tracker {
 
 
 
-void Communication::send_data(int manualMod, int sensor1, int sensor2, int sensor3, int sensor4, int angle1, int angle2, String direction1, String direction2, int angleStep, int delayUpdate, int sensibility) {
+void Communication::send_data(int manualMod, int sensor1, int sensor2, int sensor3, int sensor4, int angle1, int angle2, String direction1, String direction2, int angleStep, int delayUpdate, int sensibility, float powerGenerated, float powerRequired, float currentYield) {
 
     String jsonString = "{";
     jsonString += "\"type\":\"ws\",";
@@ -393,7 +422,9 @@ void Communication::send_data(int manualMod, int sensor1, int sensor2, int senso
     jsonString += "\"servo_2\":{\"angle\":" + String(angle2) + ",\"direction\":\"" + (direction2 == "" ? "null" : direction2) + "\"}";
     jsonString += "},";
 
-    jsonString += "\"powerGenerated\":2";
+    jsonString += "\"powerGenerated\":" + String(powerGenerated * pow(10, 3), 3) + ",";
+    jsonString += "\"powerRequired\":" + String(powerRequired * pow(10, 3), 3) + ",";
+    jsonString += "\"currentYield\":" + String(currentYield, 3);
     jsonString += "}}";
 
     Serial.println(jsonString); // Envoie la chaine de caractère formée à Python par port série
@@ -465,7 +496,7 @@ Tracker tracker(DEFAULT_MANUAL_MOD, servo1Pin, servo2Pin, sensor1Pin, sensor2Pin
 
 // Fonction qui s'exécute au lancement du programme.
 void setup() {
-    Serial.begin(9600);
+    Serial.begin(115200);
     tracker.init();
 }
 

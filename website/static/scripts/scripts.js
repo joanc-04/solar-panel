@@ -1,4 +1,5 @@
 const socket = io.connect('http://127.0.0.1:5000/');
+
 socket.on('connect', function() {
     console.log('Connexion établie');
 });
@@ -67,7 +68,7 @@ function update_sensors(data) {
 
 }
 
-function update_sliders(data) {
+function update_sliders(data, pageJustLoaded=false) {
     ["servo-1", "servo-2"].forEach((servoId, i) => {
         const angle = data.servomotors[servoId.replace(/-/g, '_')].angle;
         const slider = sliders[servoId];
@@ -75,13 +76,14 @@ function update_sliders(data) {
         slider.label.textContent = angle;
     });
 
-    ["sensibility", "delayUpdate", "angleRotation"].forEach((sliderId) => {
-        const value = data.system[sliderId];
-        const slider = sliders[sliderId]
-        slider.slider.value = value;
-        slider.label.textContent = value;
-
-    })
+    if (pageJustLoaded) {
+        ["sensibility", "delayUpdate", "angleRotation"].forEach((sliderId) => {
+            const value = data.system[sliderId];
+            const slider = sliders[sliderId]
+            slider.slider.value = value;
+            slider.label.textContent = value;
+        });
+    }
 
 }
 
@@ -115,15 +117,18 @@ manualMod_toggle.addEventListener('click', function() {
 
 });
 
+
 let ignoreWebSocketUpdateUntil = 0;
 
 Object.entries(sliders).forEach(([sliderId, sliderData], i) => {
     const slider = sliderData.slider;
     slider.addEventListener('input', function() {
-       sliderData.label.textContent = this.value;
+        ignoreWebSocketUpdateUntil = Date.now() + 100;
+        console.log("passs")
+        sliderData.label.textContent = this.value;
     });
     slider.addEventListener('change', function() {
-        ignoreWebSocketUpdateUntil = Date.now() + 600;
+        ignoreWebSocketUpdateUntil = Date.now() + 100;
         const value = this.value;
         socket.emit('from_website', {
             type: "ws",
@@ -247,30 +252,31 @@ generateChart("chart__meanYield", "Rendement moyen depuis que le panneau est all
 
 
 // Fonction pour ajouter un point toutes les secondes
-function addDataPoint(chartId, point, point2) {
+function addDataPoint(chartId, time, point, point2) {
 
     let chart = Charts[chartId];
 
     chart.data.datasets[0].data.push({
-        x: point[0],
-        y: point[1]
+        x: time,
+        y: point
     });
 
     // Réduire à 1 point sur 2 si on dépasse 10 points
-    if (chart.data.datasets[0].data.length > 10) {
+    if (chart.data.datasets[0].data.length > 30) {
         // Ne garder qu’un point sur deux (index pair)
-        chart.data.datasets[0].data = chart.data.datasets[0].data.filter((point, index) => index % 2 === 1);
+        // chart.data.datasets[0].data.shift();
+        chart.data.datasets[0].data = chart.data.datasets[0].data.filter((point, index) => index != 0);
     }
 
     if (point2) {
         chart.data.datasets[1].data.push({
-            x: point2[0],
-            y: point2[1]
+            x: time,
+            y: point2
         });
 
-        if (chart.data.datasets[1].data.length > 10) {
+        if (chart.data.datasets[1].data.length > 30) {
             // Ne garder qu’un point sur deux (index pair)
-            chart.data.datasets[1].data = chart.data.datasets[1].data.filter((point, index) => index % 2 === 1);
+            chart.data.datasets[1].data = chart.data.datasets[1].data.filter((point, index) => index != 0);
         }
 
     }
@@ -332,14 +338,13 @@ socket.on('new_data', function(dataReceived) {
     data = dataReceived;
 
     if (pageJustLoaded) {
-        update_sliders(data);
+        update_sliders(data, true);
         update_manualMod(data.system.manual);
         document.getElementsByClassName("loader-container")[0].style.display = "None";
         pageJustLoaded = false;
     }
 
     if (Date.now() < ignoreWebSocketUpdateUntil) return;
-
 
     update_sensors(data);
 
@@ -353,8 +358,8 @@ socket.on('new_data', function(dataReceived) {
 
     }
 
-    addDataPoint("chart__powerGenerated", data.powerGenerated)
-    addDataPoint("chart__powerRequired", data.powerRequired)
-    addDataPoint("chart__meanYield", data.meanYield, data.currentYield)
+    addDataPoint("chart__powerGenerated", data.time, data.powerGenerated)
+    addDataPoint("chart__powerRequired", data.time, data.powerRequired)
+    addDataPoint("chart__meanYield", data.time, data.meanYield, data.currentYield)
 
 });
