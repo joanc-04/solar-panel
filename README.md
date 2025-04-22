@@ -17,7 +17,7 @@
 
 ```
 
-## Fichiers
+# Fichiers
 
 Dans le dossier `website`, vous trouverez tous les fichiers nécessaires à l'interface graphique.
 - `app.py` est le fichier Python faisant la connexion port série avec l'Arduino. Il envoie ensuite les données au WebSocket en `localhost:5000`.
